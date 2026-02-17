@@ -38,6 +38,7 @@ public class Game {
         revealedSolution = false;
     }
 
+    
     public boolean genPathAndSolution(int diffPercent) {
         newBoard();
         sy = rnd.nextInt(h);
@@ -47,14 +48,40 @@ public class Game {
 
         boolean[][] vis = new boolean[h][w];
         List<int[]> path = new ArrayList<>();
-        int maxTries = 20000;
         int[] tries = new int[]{0};
 
-        boolean ok = walkRec(sx, sy, vis, path, tries, maxTries);
-        if (!ok) {
-            return false;
+        
+        int mid = (h - 1) / 2;
+
+        if (sy <= mid) {
+            
+            boolean ok = walkRec(sx, sy, vis, path, tries, 20000, 0, w - 1, 0, mid);
+            if (!ok || path.get(path.size() - 1)[1] != mid) {
+                return false;
+            }
+
+            
+            int hx = path.get(path.size() - 1)[0];
+            boolean found = false;
+            int[] dxOrder = {0, 1, -1, 2, -2};   
+            for (int dx : dxOrder) {
+                int nx = hx + dx, ny = mid + 1;
+                if (nx < 0 || nx >= w || vis[ny][nx]) continue;
+                // ── CONQUER bottom half: walkRec confined to rows [mid+1..h-1]
+                if (walkRec(nx, ny, vis, path, tries, 20000, 0, w - 1, mid + 1, h - 1)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+
+        } else {
+            
+            boolean ok = walkRec(sx, sy, vis, path, tries, 20000, 0, w - 1, 0, h - 1);
+            if (!ok) return false;
         }
 
+        
         int[] last = path.get(path.size() - 1);
         int lx = last[0], ly = last[1];
         if (ly != h - 1) {
@@ -64,9 +91,7 @@ public class Game {
                 path.add(new int[]{cx, cy});
                 vis[cy][cx] = true;
             }
-            if (cy != h - 1) {
-                return false;
-            }
+            if (cy != h - 1) return false;
             ex = cx;
             ey = cy;
         } else {
@@ -74,6 +99,7 @@ public class Game {
             ey = last[1];
         }
 
+        
         for (int i = 0; i < path.size(); i++) {
             int x = path.get(i)[0], y = path.get(i)[1];
             Set<Dir> s = new HashSet<>();
@@ -128,7 +154,10 @@ public class Game {
         return true;
     }
 
-    private boolean walkRec(int x, int y, boolean[][] vis, List<int[]> path, int[] tries, int maxTries) {
+    
+    private boolean walkRec(int x, int y, boolean[][] vis, List<int[]> path,
+                            int[] tries, int maxTries,
+                            int xMin, int xMax, int yMin, int yMax) {
         if (tries[0]++ > maxTries) {
             return false;
         }
@@ -144,17 +173,17 @@ public class Game {
 
         for (int[] d : dirs) {
             int nx = x + d[0], ny = y + d[1];
-            if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
+            if (nx < xMin || nx > xMax || ny < yMin || ny > yMax) {
                 continue;
             }
             if (!vis[ny][nx]) {
-                if (walkRec(nx, ny, vis, path, tries, maxTries)) {
+                if (walkRec(nx, ny, vis, path, tries, maxTries, xMin, xMax, yMin, yMax)) {
                     return true;
                 }
             }
         }
 
-        if (y == h - 1) {
+        if (y == yMax) {
             return true;
         }
 
