@@ -2,10 +2,7 @@ package Tracks;
 
 import java.util.*;
 
-/**
- * Dynamic Programming implementation for Tracks Game
- * Finds optimal solution using memoization and state space exploration
- */
+
 public class DynamicProgramming {
     
     private int width, height;
@@ -19,17 +16,6 @@ public class DynamicProgramming {
         this.metrics = new DPMetrics();
     }
     
-    /**
-     * DP Algorithm: Find minimum moves needed to solve puzzle
-     * Uses memoization to avoid recalculating same states
-     * 
-     * State: Current board configuration encoded as string
-     * Value: Minimum moves from this state to solution
-     * 
-     * Recurrence Relation:
-     * dp[state] = min(1 + dp[next_state]) for all valid next states
-     * Base case: dp[solved_state] = 0
-     */
     public int findMinimumMoves(TType[][] current, TType[][] solution) {
         long startTime = System.nanoTime();
         metrics.reset();
@@ -85,10 +71,7 @@ public class DynamicProgramming {
         return minMoves;
     }
     
-    /**
-     * DP Algorithm: Find optimal sequence of moves
-     * Returns list of (x,y) positions to fill in optimal order
-     */
+    
     public List<int[]> findOptimalSequence(TType[][] current, TType[][] solution) {
         List<int[]> sequence = new ArrayList<>();
         TType[][] state = copyBoard(current);
@@ -125,10 +108,7 @@ public class DynamicProgramming {
         return sequence;
     }
     
-    /**
-     * DP for Subset Sum: Check if puzzle is solvable with k moves
-     * Classic DP problem adapted for game state
-     */
+    
     public boolean isSolvableInKMoves(TType[][] current, TType[][] solution, int k) {
         // DP table: dp[i][j] = can we fix first i cells in exactly j moves?
         int totalCells = width * height;
@@ -154,7 +134,7 @@ public class DynamicProgramming {
             }
         }
         
-        // Check if we can fix all cells in at most k moves
+        
         for (int moves = 0; moves <= k; moves++) {
             if (dp[totalCells][moves]) return true;
         }
@@ -162,11 +142,7 @@ public class DynamicProgramming {
         return false;
     }
     
-    /**
-     * Longest Common Subsequence (LCS) DP
-     * Find similarity between current state and solution
-     * Higher LCS = closer to solution
-     */
+    
     public int calculateBoardSimilarity(TType[][] current, TType[][] solution) {
         // Flatten boards to 1D arrays
         List<TType> currentFlat = new ArrayList<>();
@@ -196,11 +172,6 @@ public class DynamicProgramming {
         return lcs[n][n];
     }
     
-    /**
-     * Edit Distance DP
-     * Calculate minimum operations to transform current to solution
-     * Operations: Insert, Delete, Replace track piece
-     */
     public int calculateEditDistance(TType[][] current, TType[][] solution) {
         int differences = 0;
         
