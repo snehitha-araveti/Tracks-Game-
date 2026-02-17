@@ -6,6 +6,7 @@ public class Move {
     public TType prev;
     public boolean prevClue;
 
+	//initialization
     public Move(int x, int y, TType prev, boolean prevClue) {
         this.x = x;
         this.y = y;
@@ -13,3 +14,4 @@ public class Move {
         this.prevClue = prevClue;
     }
 }
+
