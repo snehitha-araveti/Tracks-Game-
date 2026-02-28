@@ -233,6 +233,38 @@ public class ComputerSolver {
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    //  3. DYNAMIC PROGRAMMING ALGORITHM
+    // ═════════════════════════════════════════════════════════════════════
+    /** Builds dp table once, then replays in order. */
+    private void buildDPPlayList(int[] ops) {
+        List<int[]> path = chainFollowPath(ops);
+
+        int[][] dp = new int[game.h][game.w];
+        for (int[] row : dp) Arrays.fill(row, Integer.MAX_VALUE);
+
+        // dp[path[i]] = i (recurrence: dp[next] = dp[cur] + 1)
+        for (int i = 0; i < path.size(); i++) {
+            int x = path.get(i)[0], y = path.get(i)[1];
+            dp[y][x] = i;
+            ops[0]++;
+        }
+
+        // Sort by dp value for correct fill order
+        List<int[]> cells = new ArrayList<>();
+        for (int y = 0; y < game.h; y++)
+            for (int x = 0; x < game.w; x++)
+                if (game.sol[y][x] != TType.EMPTY && dp[y][x] != Integer.MAX_VALUE)
+                    cells.add(new int[]{x, y, dp[y][x]});
+
+        cells.sort(Comparator.comparingInt(c -> c[2]));
+
+        playList  = new ArrayList<>();
+        playIndex = 0;
+        for (int[] c : cells) playList.add(new int[]{c[0], c[1]});
+        initOps = ops[0];
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     //  4. BACKTRACKING ALGORITHM
     // ═════════════════════════════════════════════════════════════════════
     /** Builds play order via recursive DFS with constraint checking. */
