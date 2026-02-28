@@ -205,6 +205,50 @@ public class ComputerSolver {
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    //  1. GREEDY ALGORITHM
+    // ═════════════════════════════════════════════════════════════════════
+    /**
+     * Each step: BFS from end over solution cells only.
+     * Pick unsolved cell with smallest path distance.
+     */
+    private int[] stepGreedy(int[] ops) {
+        int[][] dist = new int[game.h][game.w];
+        for (int[] row : dist) Arrays.fill(row, -1);
+        dist[game.ey][game.ex] = 0;
+        Deque<int[]> q = new ArrayDeque<>();
+        q.add(new int[]{game.ex, game.ey});
+
+        // BFS over solution cells only
+        while (!q.isEmpty()) {
+            int[] v = q.poll();
+            int x = v[0], y = v[1];
+            ops[0]++;
+            for (int[] d : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
+                int nx = x + d[0], ny = y + d[1];
+                if (nx < 0 || nx >= game.w || ny < 0 || ny >= game.h) continue;
+                if (game.sol[ny][nx] == TType.EMPTY) continue;
+                if (dist[ny][nx] != -1) continue;
+                dist[ny][nx] = dist[y][x] + 1;
+                q.add(new int[]{nx, ny});
+            }
+        }
+
+        // Pick closest unsolved cell
+        int bestDist = Integer.MAX_VALUE, bx = -1, by = -1;
+        for (int y = 0; y < game.h; y++) {
+            for (int x = 0; x < game.w; x++) {
+                ops[0]++;
+                if (game.sol[y][x] == TType.EMPTY) continue;
+                if (game.board[y][x].t == game.sol[y][x]) continue;
+                if (dist[y][x] >= 0 && dist[y][x] < bestDist) {
+                    bestDist = dist[y][x]; bx = x; by = y;
+                }
+            }
+        }
+        return bx == -1 ? null : new int[]{bx, by};
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     //  2. DIVIDE & CONQUER ALGORITHM
     // ═════════════════════════════════════════════════════════════════════
     /**
