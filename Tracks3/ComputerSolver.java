@@ -232,6 +232,81 @@ public class ComputerSolver {
         dcFill(path, mid + 1, hi, ops);   // right half
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    //  4. BACKTRACKING ALGORITHM
+    // ═════════════════════════════════════════════════════════════════════
+    /** Builds play order via recursive DFS with constraint checking. */
+    private void buildBTPlayList(int[] ops) {
+        playList  = new ArrayList<>();
+        playIndex = 0;
+
+        // Collect all solution cells as candidates
+        List<int[]> candidates = new ArrayList<>();
+        for (int y = 0; y < game.h; y++)
+            for (int x = 0; x < game.w; x++)
+                if (game.sol[y][x] != TType.EMPTY)
+                    candidates.add(new int[]{x, y});
+
+        int[] rowTarget = game.rowClues.clone();
+        int[] colTarget = game.colClues.clone();
+        int[] rowCount  = new int[game.h];
+        int[] colCount  = new int[game.w];
+        boolean[] placed = new boolean[candidates.size()];
+
+        boolean found = btRecurse(candidates, placed,
+                                  rowTarget, colTarget, rowCount, colCount,
+                                  0, ops);
+
+        if (!found) playList = chainFollowPath(ops); // fallback
+        initOps = ops[0];
+    }
+
+    /** Recursive backtracking with undo on constraint violation. */
+    private boolean btRecurse(List<int[]> candidates, boolean[] placed,
+                               int[] rowTarget, int[] colTarget,
+                               int[] rowCount,  int[] colCount,
+                               int placedCount, int[] ops) {
+        ops[0]++;
+
+        // Base case: all cells placed
+        if (placedCount == candidates.size()) {
+            for (int r = 0; r < rowTarget.length; r++)
+                if (rowCount[r] != rowTarget[r]) return false;
+            for (int c = 0; c < colTarget.length; c++)
+                if (colCount[c] != colTarget[c]) return false;
+            return true;
+        }
+
+        for (int i = 0; i < candidates.size(); i++) {
+            if (placed[i]) continue;
+            ops[0]++;
+
+            int x = candidates.get(i)[0];
+            int y = candidates.get(i)[1];
+
+            // Pruning: check row/col clue constraints
+            if (rowCount[y] + 1 > rowTarget[y]) continue;
+            if (colCount[x] + 1 > colTarget[x]) continue;
+
+            // Try this cell
+            placed[i] = true;
+            rowCount[y]++;
+            colCount[x]++;
+            playList.add(new int[]{x, y});
+
+            if (btRecurse(candidates, placed, rowTarget, colTarget,
+                          rowCount, colCount, placedCount + 1, ops))
+                return true;
+
+            // Undo (backtrack)
+            playList.remove(playList.size() - 1);
+            rowCount[y]--;
+            colCount[x]--;
+            placed[i] = false;
+        }
+        return false;
+    }
+
     public AlgoMetrics getMetrics() {
         return metrics;
     }
