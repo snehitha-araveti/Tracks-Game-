@@ -20,6 +20,7 @@ public class TracksGame extends JFrame {
     // ═════════════════════════════════════════════════════════════════════
     private Game userGame;                     // Player's board
     private Game compGame;                     // Computer's board (separate clone)
+    private Game originalGame;                 // Pristine puzzle (never modified)
     private ComputerSolver solver;             // Algorithm solver
     private ComputerSolver.Algo selectedAlgo = ComputerSolver.Algo.GREEDY;
 
@@ -40,8 +41,10 @@ public class TracksGame extends JFrame {
     private BoardPanel userBoard, compBoard;
     private JLabel     lblMsg;
     private JButton    btnNew, btnRestart, btnUndo, btnSolve, btnCheck;
-    private JButton    btnRunComp, btnAnalysis;
+    private JButton    btnRunComp, btnRestartComp, btnChangeAlgo, btnAnalysis;
     private JPanel     topBar;
+
+    private boolean firstLaunch = true;
 
     /** Creates the main application window. */
     public TracksGame() {
@@ -51,8 +54,8 @@ public class TracksGame extends JFrame {
         setMinimumSize(new Dimension(860, 560));
         setLocationRelativeTo(null);
         initUI();
+        newGameDialog();
         setVisible(true);
-        SwingUtilities.invokeLater(this::newGameDialog);
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -65,14 +68,18 @@ public class TracksGame extends JFrame {
         // Top bar with buttons (Review 2 style)
         topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
 
-        btnNew      = colorBtn("New Game",       new Color(76,  175, 80));
-        btnRestart  = colorBtn("Restart",         new Color(255, 193, 7));
-        btnUndo     = colorBtn("Undo",            new Color(33,  150, 243));
-        btnSolve    = colorBtn("Show Solution",   new Color(244, 67,  54));
-        btnCheck    = colorBtn("Check",           new Color(156, 39,  176));
-        btnRunComp  = colorBtn("▶ Run Computer",  new Color(0,   150, 136));
-        btnAnalysis = colorBtn("📊 Analysis",     new Color(100, 100, 100));
+        btnNew         = colorBtn("New Game",          new Color(76,  175, 80));
+        btnRestart     = colorBtn("Restart",            new Color(255, 193, 7));
+        btnUndo        = colorBtn("Undo",               new Color(33,  150, 243));
+        btnSolve       = colorBtn("Show Solution",      new Color(244, 67,  54));
+        btnCheck       = colorBtn("Check",              new Color(156, 39,  176));
+        btnRunComp     = colorBtn("▶ Run Computer",     new Color(0,   150, 136));
+        btnRestartComp = colorBtn("↺ Restart Computer", new Color(230, 120, 0));
+        btnChangeAlgo  = colorBtn("⚙ Change Algorithm", new Color(90,  90,  160));
+        btnAnalysis    = colorBtn("📊 Analysis",        new Color(100, 100, 100));
         btnAnalysis.setEnabled(false);
+        btnRestartComp.setEnabled(false);
+        btnChangeAlgo.setEnabled(false);
 
         topBar.add(btnNew);
         topBar.add(btnRestart);
@@ -81,6 +88,8 @@ public class TracksGame extends JFrame {
         topBar.add(btnCheck);
         topBar.add(new JSeparator(JSeparator.VERTICAL));
         topBar.add(btnRunComp);
+        topBar.add(btnRestartComp);
+        topBar.add(btnChangeAlgo);
         topBar.add(btnAnalysis);
 
         lblMsg = new JLabel("Welcome to Tracks — Review 3");
@@ -104,7 +113,9 @@ public class TracksGame extends JFrame {
         btnUndo   .addActionListener(e -> handleUndo());
         btnSolve  .addActionListener(e -> handleReveal());
         btnCheck  .addActionListener(e -> handleCheck());
-        btnRunComp.addActionListener(e -> startComputerSolve());
+        btnRunComp    .addActionListener(e -> startComputerSolve());
+        btnRestartComp.addActionListener(e -> handleRestartComputer());
+        btnChangeAlgo .addActionListener(e -> handleChangeAlgo());
         btnAnalysis.addActionListener(e -> showAnalysisDialog());
     }
 
@@ -141,9 +152,41 @@ public class TracksGame extends JFrame {
         p.add(new JLabel("Difficulty:")); p.add(cbDiff);
         p.add(new JLabel("Computer Algorithm:")); p.add(cbAlgo);
 
-        int res = JOptionPane.showConfirmDialog(this, p, "New Game Settings",
-                JOptionPane.OK_CANCEL_OPTION);
-        if (res != JOptionPane.OK_OPTION) return;
+        JDialog dialog = new JDialog(this, "New Game Settings", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JPanel iconPanel = new JPanel(new BorderLayout());
+        iconPanel.add(new JLabel(UIManager.getIcon("OptionPane.questionIcon")), BorderLayout.NORTH);
+        iconPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 0));
+
+        JPanel content = new JPanel(new BorderLayout(10, 10));
+        content.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        content.add(iconPanel, BorderLayout.WEST);
+        content.add(p, BorderLayout.CENTER);
+
+        JButton btnOK = new JButton("OK");
+        JButton btnCancel = new JButton("Cancel");
+        final boolean[] confirmed = {false};
+        btnOK.addActionListener(e -> { confirmed[0] = true; dialog.dispose(); });
+        btnCancel.addActionListener(e -> dialog.dispose());
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttons.add(btnOK);
+        buttons.add(btnCancel);
+
+        dialog.add(content, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        dialog.getRootPane().setDefaultButton(btnOK);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+
+        if (!confirmed[0]) {
+            if (firstLaunch) { firstLaunch = false; startNewGame(); }
+            return;
+        }
+        firstLaunch = false;
 
         try {
             int nw = Integer.parseInt(tfW.getText().trim());
@@ -173,8 +216,9 @@ public class TracksGame extends JFrame {
             return;
         }
 
-        userGame = g;
-        compGame = cloneGame(g);
+        userGame     = g;
+        originalGame = cloneGame(g);   // pristine copy — never touched
+        compGame     = cloneGame(g);
         solver   = new ComputerSolver(compGame, selectedAlgo);
 
         userSolved = false; compSolved = false;
@@ -187,6 +231,8 @@ public class TracksGame extends JFrame {
         compBoard.setGame(compGame);
 
         btnRunComp.setEnabled(true);
+        btnRestartComp.setEnabled(false);
+        btnChangeAlgo.setEnabled(true);
         btnAnalysis.setEnabled(false);
 
         setMessage("New " + setW + "×" + setH + " game  |  Algorithm: " +
@@ -269,11 +315,64 @@ public class TracksGame extends JFrame {
     // ═════════════════════════════════════════════════════════════════════
     //  COMPUTER SOLVER
     // ═════════════════════════════════════════════════════════════════════
-    /** Starts the computer solver with animated steps. */
+    /** Resets the computer board and solver so it can be run again. */
+    private void handleRestartComputer() {
+        if (compTimer != null && compTimer.isRunning()) compTimer.stop();
+        if (originalGame == null) return;
+        compGame   = cloneGame(originalGame);   // always from pristine puzzle
+        solver     = new ComputerSolver(compGame, selectedAlgo);
+        compSolved = false;
+        compStartMs = System.currentTimeMillis();
+        compEndMs   = 0;
+        compBoard.highlightPath = false;
+        compBoard.setGame(compGame);
+        compBoard.repaint();
+        btnRunComp.setEnabled(true);
+        btnRestartComp.setEnabled(false);
+        btnAnalysis.setEnabled(false);
+        setMessage("↺ Computer board reset  |  Algorithm: " + solver.getMetrics().algoName + "  |  Press ▶ Run Computer to solve.");
+    }
+
+    /** Allows changing the algorithm and immediately resets the computer board. */
+    private void handleChangeAlgo() {
+        if (compTimer != null && compTimer.isRunning()) compTimer.stop();
+
+        String[] algos = {"Greedy", "Divide & Conquer", "Dynamic Programming", "Backtracking"};
+        JComboBox<String> cbAlgo = new JComboBox<>(algos);
+        cbAlgo.setSelectedIndex(selectedAlgo.ordinal());
+
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        p.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        p.add(new JLabel("Select algorithm for Computer Solver:"), BorderLayout.NORTH);
+        p.add(cbAlgo, BorderLayout.CENTER);
+
+        JDialog dialog = new JDialog(this, "Change Algorithm", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.add(p, BorderLayout.CENTER);
+
+        JButton btnOK     = new JButton("Apply & Reset Computer");
+        JButton btnCancel = new JButton("Cancel");
+        final boolean[] ok = {false};
+        btnOK    .addActionListener(e -> { ok[0] = true;  dialog.dispose(); });
+        btnCancel.addActionListener(e -> dialog.dispose());
+
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        btns.add(btnOK); btns.add(btnCancel);
+        dialog.add(btns, BorderLayout.SOUTH);
+        dialog.getRootPane().setDefaultButton(btnOK);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+
+        if (!ok[0]) return;
+        selectedAlgo = ComputerSolver.Algo.values()[cbAlgo.getSelectedIndex()];
+        handleRestartComputer();   // reset board with new algo
+    }
     private void startComputerSolve() {
         if (compTimer != null && compTimer.isRunning()) return;
         if (compSolved || solver == null) return;
         btnRunComp.setEnabled(false);
+        btnRestartComp.setEnabled(true);
         compStartMs = System.currentTimeMillis();
         setMessage("🤖 " + solver.getMetrics().algoName + " is solving…");
 
@@ -291,12 +390,14 @@ public class TracksGame extends JFrame {
                 setMessage("🤖 Computer solved in " + solver.getTotalMoves() + " steps  |  " +
                            String.format("%.1f s", (compEndMs - compStartMs) / 1000.0));
                 btnAnalysis.setEnabled(true);
+                btnRestartComp.setEnabled(true);
                 return;
             }
             if (!moved) {
                 compTimer.stop();
                 setMessage("🤖 Computer finished — check path with Check button.");
                 btnAnalysis.setEnabled(true);
+                btnRestartComp.setEnabled(true);
             }
         });
         compTimer.start();
