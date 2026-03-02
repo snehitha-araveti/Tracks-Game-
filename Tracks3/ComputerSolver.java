@@ -29,6 +29,7 @@ public class ComputerSolver {
     private int cumulativeOps = 0;
     private int totalMoves = 0;
     private final List<long[]> stepLog = new ArrayList<>();
+    private Set<String> dpVisitedStates = new HashSet<>();
 
     // Pre-computed play order for DC, DP, Backtracking
     private List<int[]> playList = null;
@@ -328,34 +329,93 @@ public class ComputerSolver {
     // ═════════════════════════════════════════════════════════════════════
     //  3. DYNAMIC PROGRAMMING ALGORITHM
     // ═════════════════════════════════════════════════════════════════════
-    /** Builds dp table once, then replays in order. */
+    private String encodeState(int[] rowCount, int[] colCount) {
+        return Arrays.toString(rowCount) + "|" + Arrays.toString(colCount);
+    }
     private void buildDPPlayList(int[] ops) {
-        List<int[]> path = chainFollowPath(ops);
-
-        int[][] dp = new int[game.h][game.w];
-        for (int[] row : dp) Arrays.fill(row, Integer.MAX_VALUE);
-
-        // dp[path[i]] = i (recurrence: dp[next] = dp[cur] + 1)
-        for (int i = 0; i < path.size(); i++) {
-            int x = path.get(i)[0], y = path.get(i)[1];
-            dp[y][x] = i;
-            ops[0]++;
-        }
-
-        // Sort by dp value for correct fill order
-        List<int[]> cells = new ArrayList<>();
-        for (int y = 0; y < game.h; y++)
-            for (int x = 0; x < game.w; x++)
-                if (game.sol[y][x] != TType.EMPTY && dp[y][x] != Integer.MAX_VALUE)
-                    cells.add(new int[]{x, y, dp[y][x]});
-
-        cells.sort(Comparator.comparingInt(c -> c[2]));
-
         playList  = new ArrayList<>();
         playIndex = 0;
-        for (int[] c : cells) playList.add(new int[]{c[0], c[1]});
+        dpVisitedStates.clear();
+
+        // Collect all solution cells
+        List<int[]> candidates = new ArrayList<>();
+        for (int y = 0; y < game.h; y++)
+            for (int x = 0; x < game.w; x++)
+                if (game.sol[y][x] != TType.EMPTY)
+                    candidates.add(new int[]{x, y});
+
+        int[] rowTarget = game.rowClues.clone();
+        int[] colTarget = game.colClues.clone();
+        int[] rowCount  = new int[game.h];
+        int[] colCount  = new int[game.w];
+        boolean[] placed = new boolean[candidates.size()];
+
+        boolean solved = dpRecurse(candidates, placed,
+                                   rowTarget, colTarget,
+                                   rowCount, colCount,
+                                   0, ops);
+
+        if (!solved) {
+            // fallback to simple path
+            playList = chainFollowPath(ops);
+        }
+
         initOps = ops[0];
     }
+    private boolean dpRecurse(List<int[]> candidates, boolean[] placed,
+            int[] rowTarget, int[] colTarget,
+            int[] rowCount,  int[] colCount,
+            int placedCount, int[] ops) {
+
+		ops[0]++;
+
+		if (placedCount == candidates.size()) {
+			for (int r = 0; r < rowTarget.length; r++)
+				if (rowCount[r] != rowTarget[r])
+					return false;
+			for (int c = 0; c < colTarget.length; c++)
+				if (colCount[c] != colTarget[c])
+					return false;
+			return true;
+		}
+
+		// Memoization check
+		String stateKey = encodeState(rowCount, colCount);
+		if (dpVisitedStates.contains(stateKey))
+			return false;
+
+		dpVisitedStates.add(stateKey);
+
+		for (int i = 0; i < candidates.size(); i++) {
+			if (placed[i])
+				continue;
+			ops[0]++;
+
+			int x = candidates.get(i)[0];
+			int y = candidates.get(i)[1];
+
+			if (rowCount[y] + 1 > rowTarget[y])
+				continue;
+			if (colCount[x] + 1 > colTarget[x])
+				continue;
+
+			placed[i] = true;
+			rowCount[y]++;
+			colCount[x]++;
+			playList.add(new int[] { x, y });
+
+			if (dpRecurse(candidates, placed, rowTarget, colTarget, rowCount, colCount, placedCount + 1, ops))
+				return true;
+
+			// undo
+			playList.remove(playList.size() - 1);
+			rowCount[y]--;
+			colCount[x]--;
+			placed[i] = false;
+		}
+
+		return false;
+	}
 
     // ═════════════════════════════════════════════════════════════════════
     //  4. BACKTRACKING ALGORITHM
