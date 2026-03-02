@@ -251,29 +251,78 @@ public class ComputerSolver {
     // ═════════════════════════════════════════════════════════════════════
     //  2. DIVIDE & CONQUER ALGORITHM
     // ═════════════════════════════════════════════════════════════════════
-    /**
-     * Builds play order by recursively filling midpoint first.
-     */
-    private void buildDCPlayList(int[] ops) {
-        List<int[]> path = chainFollowPath(ops);
-        playList = new ArrayList<>(path.size());
+  private void buildDCPlayList(int[] ops) {
+        playList = new ArrayList<>();
         playIndex = 0;
-        dcFill(path, 0, path.size() - 1, ops);
+
+        List<int[]> allCells = new ArrayList<>();
+
+        for (int y = 0; y < game.h; y++)
+            for (int x = 0; x < game.w; x++)
+                if (game.sol[y][x] != TType.EMPTY)
+                    allCells.add(new int[]{x, y});
+
+        dcRecurse(allCells, 0, game.h - 1, ops);
+
         initOps = ops[0];
     }
+    private void dcRecurse(List<int[]> cells, int startRow, int endRow, int[] ops) {
 
-    /**
-     * Recursive D&C: fill midpoint, then left and right halves.
-     */
-    private void dcFill(List<int[]> path, int lo, int hi, int[] ops) {
         ops[0]++;
-        if (lo > hi) {
+
+        // Base case: single row
+        if (startRow == endRow) {
+            for (int[] cell : cells) {
+                if (cell[1] == startRow) {
+                    playList.add(cell);
+                }
+            }
             return;
         }
-        int mid = (lo + hi) / 2;
-        playList.add(path.get(mid));            // midpoint first
-        dcFill(path, lo, mid - 1, ops);   // left half
-        dcFill(path, mid + 1, hi, ops);   // right half
+
+        // Divide
+        int mid = (startRow + endRow) / 2;
+
+        List<int[]> topHalf = new ArrayList<>();
+        List<int[]> bottomHalf = new ArrayList<>();
+
+        for (int[] cell : cells) {
+            if (cell[1] <= mid)
+                topHalf.add(cell);
+            else
+                bottomHalf.add(cell);
+        }
+
+        // Conquer
+        dcRecurse(topHalf, startRow, mid, ops);
+        dcRecurse(bottomHalf, mid + 1, endRow, ops);
+
+        // Combine step (validation)
+        validateDCPartialSolution();
+    }
+    private void validateDCPartialSolution() {
+        int[] rowCount = new int[game.h];
+        int[] colCount = new int[game.w];
+
+        for (int[] cell : playList) {
+            rowCount[cell[1]]++;
+            colCount[cell[0]]++;
+        }
+
+        // If constraint exceeded, clear and fallback
+        for (int r = 0; r < game.h; r++) {
+            if (rowCount[r] > game.rowClues[r]) {
+                playList = chainFollowPath(new int[]{0});
+                return;
+            }
+        }
+
+        for (int c = 0; c < game.w; c++) {
+            if (colCount[c] > game.colClues[c]) {
+                playList = chainFollowPath(new int[]{0});
+                return;
+            }
+        }
     }
 
     // ═════════════════════════════════════════════════════════════════════
