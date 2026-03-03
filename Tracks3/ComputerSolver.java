@@ -478,6 +478,13 @@ public class ComputerSolver {
             rowCount[y]++;
             colCount[x]++;
             playList.add(new int[]{x, y});
+			
+			TType original = game.board[y][x].t;
+            game.board[y][x].t = game.sol[y][x];
+            game.rebuildGraph();
+            game.printBoard(); // simple console visualization
+            try { Thread.sleep(50); } catch (InterruptedException e) {}
+
 
             if (btRecurse(candidates, placed, rowTarget, colTarget,
                           rowCount, colCount, placedCount + 1, ops))
@@ -488,6 +495,11 @@ public class ComputerSolver {
             rowCount[y]--;
             colCount[x]--;
             placed[i] = false;
+
+			game.board[y][x].t = original;
+            game.rebuildGraph();
+            game.printBoard();
+            try { Thread.sleep(50); } catch (InterruptedException e) {}
         }
         return false;
     }
