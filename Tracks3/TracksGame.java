@@ -46,6 +46,9 @@ public class TracksGame extends JFrame {
 
     private boolean firstLaunch = true;
 
+    // Persistent analysis panel — accumulates all runs until New Game
+    private final AnalysisPanel analysisPanel = new AnalysisPanel();
+
     /** Creates the main application window. */
     public TracksGame() {
         super("Tracks — Review 3");
@@ -223,6 +226,7 @@ public class TracksGame extends JFrame {
 
         userSolved = false; compSolved = false;
         userMoves  = 0;
+        analysisPanel.newGame();   // reset graph history for fresh game
         userStartMs = System.currentTimeMillis();
         compStartMs = System.currentTimeMillis();
         userEndMs   = 0; compEndMs = 0;
@@ -406,75 +410,33 @@ public class TracksGame extends JFrame {
     // ═════════════════════════════════════════════════════════════════════
     //  ANALYSIS DIALOG
     // ═════════════════════════════════════════════════════════════════════
-    /** Shows the analysis dialog with performance metrics. */
+    /** Shows the analysis dialog with performance metrics and complexity graphs. */
     private void showAnalysisDialog() {
-        long uMs = userEndMs > 0 ? (userEndMs - userStartMs) : (System.currentTimeMillis() - userStartMs);
-        long cMs = compEndMs > 0 ? (compEndMs - compStartMs) : (System.currentTimeMillis() - compStartMs);
+        long uMs = userEndMs > 0 ? (userEndMs - userStartMs)
+                                 : (System.currentTimeMillis() - userStartMs);
+        long cMs = compEndMs > 0 ? (compEndMs - compStartMs)
+                                 : (System.currentTimeMillis() - compStartMs);
 
-        AlgoMetrics am = solver.getMetrics();
         int N = setW * setH;
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("═══════════════════════════════════════════\n");
-        sb.append("          GAME ANALYSIS — REVIEW 3\n");
-        sb.append("═══════════════════════════════════════════\n\n");
+        // Populate the persistent panel (also records this run in sessionRuns)
+        analysisPanel.populate(userMoves, uMs, userSolved,
+                               solver, compSolved, cMs,
+                               N, setW, setH);
 
-        sb.append("── PLAYER ──────────────────────────────\n");
-        sb.append(String.format("  Status  : %s\n", userSolved ? "✅ Solved" : "❌ Not solved"));
-        sb.append(String.format("  Moves   : %d\n", userMoves));
-        sb.append(String.format("  Time    : %.2f s\n\n", uMs / 1000.0));
+        // Show the panel inside a scrollable dialog
+        JScrollPane scroll = new JScrollPane(analysisPanel);
+        scroll.setPreferredSize(new Dimension(560, 640));
+        scroll.getVerticalScrollBar().setUnitIncrement(14);
+        scroll.setBorder(null);
 
-        sb.append("── COMPUTER (" + am.algoName + ") ─────────────────\n");
-        sb.append(String.format("  Status  : %s\n", compSolved ? "✅ Solved" : "❌ Not solved"));
-        sb.append(String.format("  Steps   : %d\n", solver.getTotalMoves()));
-        sb.append(String.format("  Time    : %.2f s\n\n", cMs / 1000.0));
-
-        sb.append("── ALGORITHM COMPLEXITY ─────────────────\n");
-        sb.append(String.format("  Strategy : %s\n", am.strategyDesc));
-        sb.append(String.format("  Time     : %s  (theoretical)\n", am.timeComplexity));
-        sb.append(String.format("  Space    : %s  (theoretical)\n\n", am.spaceComplexity));
-
-        sb.append("── MEASURED METRICS ─────────────────────\n");
-        sb.append(String.format("  Board N        : %d cells  (%dx%d)\n", N, setW, setH));
-        sb.append(String.format("  Total ops      : %,d\n", solver.getCumulativeOps()));
-        sb.append(String.format("  Total algo time: %s\n", am.totalTimeMs()));
-        int steps = solver.getTotalMoves();
-        sb.append(String.format("  Avg / step     : %.3f ms\n\n",
-                steps > 0 ? am.totalTimeNs / 1_000_000.0 / steps : 0));
-
-        sb.append("── PER-STEP LOG (last 10) ───────────────\n");
-        sb.append(String.format("  %-6s %-12s %-10s %-8s\n","Step","Time(ms)","Ops","Space"));
-        java.util.List<long[]> log = solver.getStepLog();
-        int from = Math.max(0, log.size() - 10);
-        for (int i = from; i < log.size(); i++) {
-            long[] s = log.get(i);
-            sb.append(String.format("  #%-5d %-12s %-10d %-8d\n",
-                    i + 1,
-                    String.format("%.3f", s[0] / 1_000_000.0),
-                    s[1], s[2]));
-        }
-        sb.append("\n");
-
-        // Winner banner
-        sb.append("═══════════════════════════════════════════\n");
-        if (userSolved && compSolved) {
-            if (uMs < cMs)       sb.append("  🏆 PLAYER WINS — faster by " + (cMs-uMs)/1000.0 + " s\n");
-            else if (cMs < uMs)  sb.append("  🤖 COMPUTER WINS — faster by " + (uMs-cMs)/1000.0 + " s\n");
-            else                 sb.append("  🤝 TIE!\n");
-        } else if (userSolved)  sb.append("  🏆 PLAYER WINS — computer did not finish.\n");
-        else if (compSolved)    sb.append("  🤖 COMPUTER WINS — player did not finish.\n");
-        else                    sb.append("  ⏱  Neither side solved the puzzle.\n");
-        sb.append("═══════════════════════════════════════════\n");
-
-        JTextArea ta = new JTextArea(sb.toString(), 30, 52);
-        ta.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        ta.setEditable(false);
-        ta.setBackground(new Color(245, 245, 245));
-
-        JOptionPane.showMessageDialog(this,
-                new JScrollPane(ta),
-                "Game Analysis",
-                JOptionPane.INFORMATION_MESSAGE);
+        JDialog dlg = new JDialog(this, "📊 Game Analysis", true);
+        dlg.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dlg.setLayout(new BorderLayout());
+        dlg.add(scroll, BorderLayout.CENTER);
+        dlg.pack();
+        dlg.setLocationRelativeTo(this);
+        dlg.setVisible(true);
     }
 
     // ═════════════════════════════════════════════════════════════════════
