@@ -254,4 +254,14 @@ public class Game {
         }
         return dist;
     }
+
+    public void printBoard() {
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                System.out.print(board[y][x].t == TType.EMPTY ? "." : "X");
+            }
+            System.out.println();
+        }
+        System.out.println();
+    }
 }
